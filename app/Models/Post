@@ -1,0 +1,133 @@
+<?php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+
+class Post extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'title',
+        'body',
+        'images',
+        'status',
+        'views_count',
+        'reactions_count',
+        'comments_count',
+    ];
+
+    protected $casts = [
+        'images' => 'array',
+        'views_count' => 'integer',
+        'reactions_count' => 'integer',
+        'comments_count' => 'integer',
+    ];
+
+    // Boot method to automatically update counts
+    protected static function boot()
+    {
+        parent::boot();
+        
+        // Update counts when models are created/deleted
+        static::created(function ($post) {
+            $post->updateCounts();
+        });
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class)->orderBy('created_at', 'desc');
+    }
+
+    public function reactions()
+    {
+        return $this->hasMany(Reaction::class);
+    }
+
+    public function views()
+    {
+        return $this->hasMany(PostView::class);
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    public function scopeTrending($query)
+    {
+        return $query->approved()
+            ->orderByDesc('views_count')
+            ->orderByDesc('reactions_count')
+            ->orderByDesc('created_at');
+    }
+
+    public function getImageUrlsAttribute()
+    {
+        if (!$this->images) {
+            return [];
+        }
+
+        return collect($this->images)->map(function ($image) {
+            return Storage::url($image);
+        })->toArray();
+    }
+
+    public function hasUserReacted($userId, $type = null)
+    {
+        $query = $this->reactions()->where('user_id', $userId);
+        
+        if ($type) {
+            $query->where('type', $type);
+        }
+
+        return $query->exists();
+    }
+
+    public function getUserReaction($userId)
+    {
+        return $this->reactions()->where('user_id', $userId)->first();
+    }
+
+    public function getReactionCounts()
+    {
+        return $this->reactions()
+            ->selectRaw('type, count(*) as count')
+            ->groupBy('type')
+            ->pluck('count', 'type')
+            ->toArray();
+    }
+
+    // Method to update all counts
+    public function updateCounts()
+    {
+        $this->update([
+            'views_count' => $this->views()->count(),
+            'reactions_count' => $this->reactions()->count(),
+            'comments_count' => $this->comments()->count(),
+        ]);
+    }
+
+    // Method to refresh counts from database
+    public function refreshCounts()
+    {
+        $this->views_count = $this->views()->count();
+        $this->reactions_count = $this->reactions()->count();
+        $this->comments_count = $this->comments()->count();
+        $this->save();
+    }
+}
