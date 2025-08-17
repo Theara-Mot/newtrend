@@ -1,28 +1,23 @@
 FROM php:8.2-fpm
 
-# Install dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libpng-dev libonig-dev libxml2-dev zip unzip curl git nginx supervisor
+    libpng-dev libonig-dev libxml2-dev zip unzip curl git \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
-
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
-
-# Copy Laravel project
+# Set working directory
 WORKDIR /var/www
+
+# Copy project files
 COPY . .
 
-# Install composer
+# Install composer (from official composer image)
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Ensure storage + cache directories exist
-RUN mkdir -p /var/www/storage /var/www/bootstrap/cache
+# Ensure storage and cache exist + fix permissions
+RUN mkdir -p /var/www/storage /var/www/bootstrap/cache \
+    && chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Fix permissions
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
-
-EXPOSE 80
-
-# CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+EXPOSE 9000
+CMD ["php-fpm"]
