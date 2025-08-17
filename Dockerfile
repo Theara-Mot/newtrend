@@ -1,26 +1,28 @@
-# Dockerfile
 FROM php:8.2-fpm
 
-# Install system dependencies
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    git curl libpng-dev libjpeg-dev libfreetype6-dev zip unzip
+    libpng-dev libonig-dev libxml2-dev zip unzip curl git nginx supervisor
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql gd
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Set working directory
+# Copy Laravel project
 WORKDIR /var/www
-
-# Copy project files
 COPY . .
 
-# Install Laravel dependencies
+# Install composer
+COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --optimize-autoloader
 
-CMD ["php-fpm"]
+# Nginx config
+COPY ./docker/nginx.conf /etc/nginx/sites-enabled/default
 
-EXPOSE 9000
+# Supervisor config
+COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+EXPOSE 80
+
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
