@@ -1,23 +1,22 @@
-FROM php:8.2-fpm
+FROM php:8.2-cli
 
-# Install system dependencies
+WORKDIR /var/www
+
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     libpng-dev libonig-dev libxml2-dev zip unzip curl git \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Set working directory
-WORKDIR /var/www
-
-# Copy project files into container
+# Copy source
 COPY . .
 
-# Install Composer
+# Install composer
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Ensure storage + cache directories exist and fix permissions
+# Ensure storage/cache
 RUN mkdir -p /var/www/storage /var/www/bootstrap/cache \
     && chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-EXPOSE 9000
-CMD ["php-fpm"]
+EXPOSE 8080
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
