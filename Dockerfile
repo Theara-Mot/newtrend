@@ -8,14 +8,14 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /var/www
 
-# Copy project files
+# Copy project files into container
 COPY . .
 
-# Install composer (from official composer image)
+# Install Composer
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Ensure storage and cache exist + fix permissions
+# Ensure storage + cache directories exist and fix permissions
 RUN mkdir -p /var/www/storage /var/www/bootstrap/cache \
     && chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
