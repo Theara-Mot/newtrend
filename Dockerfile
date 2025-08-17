@@ -17,11 +17,11 @@ COPY . .
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Nginx config
-# COPY ./docker/nginx.conf /etc/nginx/sites-enabled/default
+# Ensure storage + cache directories exist
+RUN mkdir -p /var/www/storage /var/www/bootstrap/cache
 
-# Supervisor config
-# COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Fix permissions
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
 EXPOSE 80
 
