@@ -18,10 +18,10 @@ COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --optimize-autoloader
 
 # Nginx config
-COPY ./docker/nginx.conf /etc/nginx/sites-enabled/default
+# COPY ./docker/nginx.conf /etc/nginx/sites-enabled/default
 
 # Supervisor config
-COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 80
 
