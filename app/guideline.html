@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Multi-Node Cluster Setup Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .nav {
+            background: #34495e;
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .nav li {
+            margin: 0;
+        }
+        
+        .nav a {
+            display: block;
+            padding: 15px 20px;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav a:hover {
+            background: #2c3e50;
+            border-bottom-color: #3498db;
+            transform: translateY(-2px);
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 5px solid #3498db;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .icon {
+            font-size: 1.2em;
+        }
+        
+        .node-info {
+            background: linear-gradient(135deg, #f39c12, #e74c3c);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .node-info h3 {
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+        
+        .node-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .node {
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .master { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .worker-db { background: linear-gradient(135deg, #27ae60, #229954); }
+        .worker-app { background: linear-gradient(135deg, #8e44ad, #7d3c98); }
+        
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow-x: auto;
+            position: relative;
+            border-left: 4px solid #3498db;
+        }
+        
+        .code-block::before {
+            content: attr(data-title);
+            position: absolute;
+            top: -10px;
+            left: 15px;
+            background: #3498db;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .code-block pre {
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            line-height: 1.4;
+        }
+        
+        .warning {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #d35400;
+        }
+        
+        .success {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #1e8449;
+        }
+        
+        .port-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .port-table th,
+        .port-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .port-table th {
+            background: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .port-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .yaml-file {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow-x: auto;
+            border-left: 4px solid #007acc;
+        }
+        
+        .yaml-file::before {
+            content: attr(data-filename);
+            display: block;
+            background: #007acc;
+            color: white;
+            padding: 8px 15px;
+            margin: -20px -20px 20px -20px;
+            font-weight: bold;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        @media (max-width: 768px) {
+            .nav ul {
+                flex-direction: column;
+            }
+            
+            .nav a {
+                text-align: center;
+                padding: 12px;
+            }
+            
+            .node-list {
+                grid-template-columns: 1fr;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .section {
+                padding: 20px;
+            }
+        }
+        
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            background: #3498db;
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Kubernetes Multi-Node Cluster Setup</h1>
+            <p>Complete guide for CentOS Master + Ubuntu DB Worker + Kali App Worker</p>
+        </div>
+        
+        <nav class="nav">
+            <ul>
+                <li><a href="#networking">🌐 Networking</a></li>
+                <li><a href="#common">⚙️ Common Setup</a></li>
+                <li><a href="#docker">🐳 Docker</a></li>
+                <li><a href="#kubernetes">☸️ Kubernetes</a></li>
+                <li><a href="#firewall">🔥 Firewall</a></li>
+                <li><a href="#master">👑 Master Init</a></li>
+                <li><a href="#workers">👷 Join Workers</a></li>
+                <li><a href="#deploy">🚀 Deploy Apps</a></li>
+            </ul>
+        </nav>
+        
+        <div class="content">
+            <section id="networking" class="section">
+                <h2><span class="step-number">1</span>🌐 VirtualBox Networking Setup</h2>
+                <p>Configure your VMs with <strong>Bridged Adapter</strong> for direct LAN access.</p>
+                
+                <div class="node-list">
+                    <div class="node master">
+                        <h3>🎯 Master Node</h3>
+                        <p>CentOS: <code>192.168.56.148</code></p>
+                        <small>Control Plane Components</small>
+                    </div>
+                    <div class="node worker-db">
+                        <h3>🗄️ Database Worker</h3>
+                        <p>Ubuntu: <code>192.168.56.146</code></p>
+                        <small>MySQL Database</small>
+                    </div>
+                    <div class="node worker-app">
+                        <h3>📱 Application Worker</h3>
+                        <p>Kali: <code>192.168.56.130</code></p>
+                        <small>Web Application</small>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="common" class="section">
+                <h2><span class="step-number">2</span>⚙️ Common Setup (All Nodes)</h2>
+                <p>Run these commands on all three servers:</p>
+                
+                <div class="code-block" data-title="System Updates">
+<pre># Ubuntu / Kali
+sudo apt update -y && sudo apt upgrade -y
+
+# CentOS
+sudo yum update -y</pre>
+                </div>
+                
+                <div class="code-block" data-title="Disable Swap">
+<pre># Disable swap (required for Kubernetes)
+sudo swapoff -a
+sudo sed -i '/ swap / s/^/#/' /etc/fstab</pre>
+                </div>
+                
+                <div class="code-block" data-title="Enable Kernel Modules">
+<pre># Enable required kernel modules
+sudo modprobe br_netfilter
+echo '1' | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables</pre>
+                </div>
+            </section>
+            
+            <section id="docker" class="section">
+                <h2><span class="step-number">3</span>🐳 Install Docker (Container Runtime)</h2>
+                
+                <h3>Ubuntu / Kali Installation:</h3>
+                <div class="code-block" data-title="Docker on Ubuntu/Kali">
+<pre>sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker.gpg
+
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io
+
+sudo systemctl enable --now docker</pre>
+                </div>
+                
+                <h3>CentOS Installation:</h3>
+                <div class="code-block" data-title="Docker on CentOS">
+<pre>sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo yum install -y docker-ce docker-ce-cli containerd.io
+
+sudo systemctl enable --now docker</pre>
+                </div>
+                
+                <div class="warning">
+                    <strong>💡 Optional:</strong> Add your user to docker group to run docker without sudo:
+                    <br><code>sudo usermod -aG docker $USER</code>
+                    <br><small>Logout and login again for changes to take effect</small>
+                </div>
+            </section>
+            
+            <section id="kubernetes" class="section">
+                <h2><span class="step-number">4</span>☸️ Install Kubernetes Components</h2>
+                <p>Install kubeadm, kubectl, and kubelet on all nodes using the same process as your previous setup.</p>
+                <div class="warning">
+                    <strong>📝 Note:</strong> Follow the standard Kubernetes installation steps for Ubuntu, Kali, and CentOS with kubeadm, kubectl, and kubelet.
+                </div>
+            </section>
+            
+            <section id="firewall" class="section">
+                <h2><span class="step-number">5</span>🔥 Configure Firewall</h2>
+                
+                <h3>Master Node (CentOS - 192.168.56.148):</h3>
+                <table class="port-table">
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>6443</td><td>TCP</td><td>Kubernetes API Server</td></tr>
+                        <tr><td>2379-2380</td><td>TCP</td><td>etcd server client API</td></tr>
+                        <tr><td>10250</td><td>TCP</td><td>Kubelet API</td></tr>
+                        <tr><td>10251</td><td>TCP</td><td>kube-scheduler</td></tr>
+                        <tr><td>10252</td><td>TCP</td><td>kube-controller-manager</td></tr>
+                    </tbody>
+                </table>
+                
+                <div class="code-block" data-title="Master Firewall Rules">
+<pre>sudo firewall-cmd --permanent --add-port=6443/tcp
+sudo firewall-cmd --permanent --add-port=2379-2380/tcp
+sudo firewall-cmd --permanent --add-port=10250/tcp
+sudo firewall-cmd --permanent --add-port=10251/tcp
+sudo firewall-cmd --permanent --add-port=10252/tcp
+sudo firewall-cmd --reload</pre>
+                </div>
+                
+                <h3>Worker Nodes (Ubuntu + Kali):</h3>
+                <div class="code-block" data-title="Worker Firewall Rules">
+<pre># Install ufw if not present
+sudo apt install ufw -y
+sudo ufw enable
+
+# Allow required ports
+sudo ufw allow 10250/tcp        # Kubelet API
+sudo ufw allow 30000:32767/tcp  # NodePort Services</pre>
+                </div>
+            </section>
+            
+            <section id="master" class="section">
+                <h2><span class="step-number">6</span>👑 Initialize Kubernetes Master</h2>
+                <p>Run on CentOS Master (192.168.56.148):</p>
+                
+                <div class="code-block" data-title="Initialize Cluster">
+<pre>sudo kubeadm init --apiserver-advertise-address=192.168.56.148 --pod-network-cidr=10.244.0.0/16</pre>
+                </div>
+                
+                <div class="code-block" data-title="Configure kubectl">
+<pre>mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config</pre>
+                </div>
+                
+                <div class="code-block" data-title="Install Flannel CNI">
+<pre>kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml</pre>
+                </div>
+                
+                <div class="warning">
+                    <strong>⚠️ Important:</strong> Save the join command output from kubeadm init! You'll need it for worker nodes.
+                </div>
+            </section>
+            
+            <section id="workers" class="section">
+                <h2><span class="step-number">7</span>👷 Join Worker Nodes</h2>
+                <p>Run on both Ubuntu and Kali workers:</p>
+                
+                <div class="code-block" data-title="Join Workers">
+<pre>sudo kubeadm join 192.168.56.148:6443 --token &lt;TOKEN&gt; \
+  --discovery-token-ca-cert-hash sha256:&lt;HASH&gt;</pre>
+                </div>
+                
+                <h3>Label Nodes by Role (on Master):</h3>
+                <div class="code-block" data-title="Label Nodes">
+<pre>kubectl label node ubuntu-db role=db
+kubectl label node kali-app role=app</pre>
+                </div>
+            </section>
+            
+            <section id="deploy" class="section">
+                <h2><span class="step-number">8</span>🚀 Deploy Applications</h2>
+                
+                <h3>Database Deployment (MySQL on Ubuntu):</h3>
+                <div class="yaml-file" data-filename="mysql-db.yaml">
+<pre>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mydb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mydb
+  template:
+    metadata:
+      labels:
+        app: mydb
+    spec:
+      nodeSelector:
+        role: db
+      containers:
+      - name: mysql
+        image: mysql:8
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "rootpass"
+        ports:
+        - containerPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mydb
+spec:
+  clusterIP: None   # headless service for DB
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mydb</pre>
+                </div>
+                
+                <h3>Application Deployment (on Kali):</h3>
+                <div class="yaml-file" data-filename="myapp.yaml">
+<pre>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      nodeSelector:
+        role: app
+      containers:
+      - name: app
+        image: myrepo/myapp:latest   # replace with your app image
+        ports:
+        - containerPort: 80
+        env:
+        - name: DB_HOST
+          value: "mydb.default.svc.cluster.local"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASS
+          value: "rootpass"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30080
+  selector:
+    app: myapp</pre>
+                </div>
+                
+                <div class="code-block" data-title="Deploy Applications">
+<pre>kubectl apply -f mysql-db.yaml
+kubectl apply -f myapp.yaml</pre>
+                </div>
+            </section>
+            
+            <div class="success">
+                <h2>🎉 Deployment Complete!</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
+                    <div>
+                        <h4>🎯 Master Node (CentOS)</h4>
+                        <p><code>192.168.56.148</code></p>
+                        <small>Kubernetes Control Plane</small>
+                    </div>
+                    <div>
+                        <h4>🗄️ Database Worker (Ubuntu)</h4>
+                        <p><code>192.168.56.146</code></p>
+                        <small>MySQL Database</small>
+                    </div>
+                    <div>
+                        <h4>📱 Application Worker (Kali)</h4>
+                        <p><code>192.168.56.130</code></p>
+                        <small>Web Application</small>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">
+                    <h4>🌐 Access Points:</h4>
+                    <p><strong>Application:</strong> <code>http://192.168.56.130:30080</code></p>
+                    <p><strong>Database (internal):</strong> <code>mydb.default.svc.cluster.local:3306</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

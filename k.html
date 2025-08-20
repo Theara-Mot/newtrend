@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Multi-Node Setup Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            border-radius: 15px;
+            border: 1px solid #2a3f5f;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            color: #64b5f6;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .header p {
+            color: #90a4ae;
+            font-size: 1.1rem;
+        }
+
+        .section {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid #2a3f5f;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #64b5f6;
+        }
+
+        .section-number {
+            background: linear-gradient(135deg, #64b5f6, #42a5f5);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+            box-shadow: 0 4px 8px rgba(100, 181, 246, 0.3);
+        }
+
+        .section-title {
+            color: #64b5f6;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .node-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .node-card {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d4a75 100%);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid #3f5f8f;
+            text-align: center;
+        }
+
+        .node-card h3 {
+            color: #81c784;
+            margin-bottom: 0.5rem;
+        }
+
+        .node-ip {
+            color: #ffb74d;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .code-block {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            margin: 1rem 0;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block pre {
+            color: #c9d1d9;
+            font-family: 'Courier New', Monaco, monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            padding: 1.5rem;
+            margin: 0;
+        }
+
+        .code-block code {
+            color: #79c0ff;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .copy-btn:hover {
+            background: #30363d;
+            border-color: #444c56;
+        }
+
+        .copy-btn:active {
+            background: #1f6feb;
+            border-color: #1f6feb;
+            color: white;
+        }
+
+        .copy-btn.copied {
+            background: #238636;
+            border-color: #238636;
+            color: white;
+        }
+
+        .warning {
+            background: linear-gradient(135deg, #5d4037 0%, #6d4c41 100%);
+            border-left: 4px solid #ff9800;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning::before {
+            content: "⚠️ ";
+            font-weight: bold;
+            color: #ff9800;
+        }
+
+        .success {
+            background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+            border-left: 4px solid #4caf50;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .success::before {
+            content: "✅ ";
+            font-weight: bold;
+            color: #4caf50;
+        }
+
+        .command {
+            color: #7dd3fc;
+            font-weight: bold;
+        }
+
+        .file-name {
+            color: #a78bfa;
+            font-weight: bold;
+        }
+
+        .subsection {
+            margin: 1.5rem 0;
+            padding-left: 1rem;
+            border-left: 3px solid #64b5f6;
+        }
+
+        .subsection h3 {
+            color: #90caf9;
+            margin-bottom: 1rem;
+        }
+
+        .result-section {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+            border: 1px solid #4caf50;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .result-section h2 {
+            color: #81c784;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .deployment-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .deployment-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .ports {
+            background: linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .section {
+                padding: 1.5rem;
+            }
+            
+            .node-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Kubernetes Multi-Node Setup</h1>
+            <p>Production-like cluster with CentOS Master, Ubuntu DB Worker & Kali App Worker</p>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <div class="section-title">Network Configuration in VirtualBox</div>
+            </div>
+            <p>Use <strong>Bridged Adapter</strong> (recommended) so each VM gets its own IP on your LAN.</p>
+            
+            <div class="node-info">
+                <div class="node-card">
+                    <h3>🎯 CentOS (Master)</h3>
+                    <div class="node-ip">192.168.56.148</div>
+                </div>
+                <div class="node-card">
+                    <h3>🗄️ Ubuntu (DB Worker)</h3>
+                    <div class="node-ip">192.168.56.146</div>
+                </div>
+                <div class="node-card">
+                    <h3>⚡ Kali (App Worker)</h3>
+                    <div class="node-ip">192.168.56.130</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <div class="section-title">Common Setup (All Nodes)</div>
+            </div>
+            <p>Run these commands on all 3 servers:</p>
+            
+            <div class="subsection">
+                <h3>Update System</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code># Ubuntu / Kali
+<span class="command">sudo apt update -y && sudo apt upgrade -y</span>
+
+# CentOS
+<span class="command">sudo yum update -y</span></code></pre>
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3>Disable Swap</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo swapoff -a</span>
+<span class="command">sudo sed -i '/ swap / s/^/#/' /etc/fstab</span></code></pre>
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3>Enable Kernel Modules</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo modprobe br_netfilter</span>
+<span class="command">echo '1' | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables</span></code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <div class="section-title">Install Docker (Container Runtime)</div>
+            </div>
+            
+            <div class="subsection">
+                <h3>Ubuntu / Kali</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release</span>
+
+<span class="command">curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker.gpg</span>
+
+<span class="command">echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list</span>
+
+<span class="command">sudo apt update</span>
+<span class="command">sudo apt install -y docker-ce docker-ce-cli containerd.io</span>
+
+<span class="command">sudo systemctl enable --now docker</span></code></pre>
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3>CentOS</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo yum install -y yum-utils</span>
+<span class="command">sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo</span>
+<span class="command">sudo yum install -y docker-ce docker-ce-cli containerd.io</span>
+
+<span class="command">sudo systemctl enable --now docker</span></code></pre>
+                </div>
+            </div>
+
+            <div class="warning">
+                <strong>Optional:</strong> Add users to docker group: 
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo usermod -aG docker $USER</span></code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <div class="section-title">Install Kubernetes</div>
+            </div>
+            <p>Follow the same steps for Ubuntu, Kali, and CentOS to install kubeadm, kubectl, and kubelet.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <div class="section-title">Configure Firewall (Production-like)</div>
+            </div>
+            
+            <div class="subsection">
+                <h3>Master (192.168.56.148 – CentOS)</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo firewall-cmd --permanent --add-port=6443/tcp</span>    # API server
+<span class="command">sudo firewall-cmd --permanent --add-port=2379-2380/tcp</span> # etcd
+<span class="command">sudo firewall-cmd --permanent --add-port=10250/tcp</span>   # kubelet
+<span class="command">sudo firewall-cmd --permanent --add-port=10251/tcp</span>   # kube-scheduler
+<span class="command">sudo firewall-cmd --permanent --add-port=10252/tcp</span>   # kube-controller-manager
+<span class="command">sudo firewall-cmd --reload</span></code></pre>
+                </div>
+                
+                <div style="margin-top: 1rem;">
+                    <div class="ports">6443/tcp - API server</div>
+                    <div class="ports">2379-2380/tcp - etcd</div>
+                    <div class="ports">10250/tcp - kubelet</div>
+                    <div class="ports">10251/tcp - kube-scheduler</div>
+                    <div class="ports">10252/tcp - kube-controller-manager</div>
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3>Workers (Ubuntu + Kali)</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo ufw allow 10250/tcp</span>   # Kubelet API
+<span class="command">sudo ufw allow 30000:32767/tcp</span>  # NodePort Services</code></pre>
+                </div>
+                
+                <div class="warning">
+                    If you don't have ufw on Kali/Ubuntu:
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo apt install ufw -y</span>
+<span class="command">sudo ufw enable</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">6</div>
+                <div class="section-title">Initialize Kubernetes Master (CentOS)</div>
+            </div>
+            
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo kubeadm init --apiserver-advertise-address=192.168.56.148 --pod-network-cidr=10.244.0.0/16</span></code></pre>
+            </div>
+
+            <div class="subsection">
+                <h3>Set up kubeconfig for kubectl</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">mkdir -p $HOME/.kube</span>
+<span class="command">sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</span>
+<span class="command">sudo chown $(id -u):$(id -g) $HOME/.kube/config</span></code></pre>
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3>Install Flannel CNI</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml</span></code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">7</div>
+                <div class="section-title">Join Workers (Ubuntu DB, Kali App)</div>
+            </div>
+            <p>On each worker, use the command provided by kubeadm:</p>
+            
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">sudo kubeadm join 192.168.56.148:6443 --token &lt;TOKEN&gt; \
+  --discovery-token-ca-cert-hash sha256:&lt;HASH&gt;</span></code></pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">8</div>
+                <div class="section-title">Label Nodes by Role</div>
+            </div>
+            <p>On the Master node, label the workers:</p>
+            
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">kubectl label node ubuntu-db role=db</span>
+<span class="command">kubectl label node kali-app role=app</span></code></pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">9</div>
+                <div class="section-title">Deploy Database (MySQL) on Ubuntu Worker</div>
+            </div>
+            <p>Create <span class="file-name">mysql-db.yaml</span>:</p>
+            
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mydb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mydb
+  template:
+    metadata:
+      labels:
+        app: mydb
+    spec:
+      nodeSelector:
+        role: db
+      containers:
+      - name: mysql
+        image: mysql:8
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "rootpass"
+        ports:
+        - containerPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mydb
+spec:
+  clusterIP: None   # headless service for DB
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mydb</code></pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">10</div>
+                <div class="section-title">Deploy Application on Kali Worker</div>
+            </div>
+            <p>Create <span class="file-name">myapp.yaml</span>:</p>
+            
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      nodeSelector:
+        role: app
+      containers:
+      - name: app
+        image: myrepo/myapp:latest   # replace with your app image
+        ports:
+        - containerPort: 80
+        env:
+        - name: DB_HOST
+          value: "mydb.default.svc.cluster.local"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASS
+          value: "rootpass"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30080
+  selector:
+    app: myapp</code></pre>
+            </div>
+
+            <div class="subsection">
+                <h3>Apply Configurations</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+<pre><code><span class="command">kubectl apply -f mysql-db.yaml</span>
+<span class="command">kubectl apply -f myapp.yaml</span></code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-section">
+            <h2>✅ Final Result</h2>
+            
+            <div class="deployment-info">
+                <div class="deployment-card">
+                    <h3>🎯 Master (CentOS)</h3>
+                    <p>192.168.56.148</p>
+                    <p>Kubernetes Control Plane</p>
+                </div>
+                <div class="deployment-card">
+                    <h3>🗄️ Ubuntu Worker</h3>
+                    <p>192.168.56.146</p>
+                    <p>Runs MySQL Database</p>
+                </div>
+                <div class="deployment-card">
+                    <h3>⚡ Kali Worker</h3>
+                    <p>192.168.56.130</p>
+                    <p>Runs Application</p>
+                </div>
+            </div>
+
+            <div class="success">
+                <strong>App exposed at:</strong> http://192.168.56.130:30080
+            </div>
+            
+            <div class="success">
+                <strong>DB available inside cluster as:</strong> mydb.default.svc.cluster.local:3306
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyCode(button) {
+            const codeBlock = button.nextElementSibling;
+            const code = codeBlock.textContent;
+            
+            // Clean up the code (remove extra whitespace and HTML formatting)
+            const cleanCode = code.replace(/^\s+|\s+$/g, '').replace(/\s+/g, ' ').replace(/ +/g, ' ').trim();
+            
+            navigator.clipboard.writeText(cleanCode).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                button.textContent = '❌ Failed';
+                setTimeout(() => {
+                    button.textContent = '📋 Copy';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
